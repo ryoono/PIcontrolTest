@@ -2,8 +2,12 @@
  * ボード設定：Arduino DUE（Programming Port）
  */
 
+// エンコーダーにつながるピン(外部割り込み設定)
+const int getEncoderPin = 10;
+
 void setup() {
-  
+
+  attachInterrupt(digitalPinToInterrupt(getEncoderPin), encoderInterrupt, CHANGE);
   startTimer(TC1, 0, TC3_IRQn, 20);
 }
 
@@ -28,4 +32,8 @@ void startTimer(Tc *tc, uint32_t channel, IRQn_Type irq, uint32_t mSec) {
 void TC3_Handler() {
   TC_GetStatus(TC1, 0);
   // 割り込み発生時に実行する部分
+}
+
+void encoderInterrupt(){
+  
 }
