@@ -1,9 +1,20 @@
 /*
  * ボード設定：Arduino DUE（Programming Port）
+ * 
+ * タイマ割り込み参考サイト
+ * http://jtakao.web.fc2.com/elec/due_timerinterrupt/index.html
+ * 
+ * 外部割り込み参考サイト
+ * https://garretlab.web.fc2.com/arduino_reference/language/functions/external_interrupts/attachInterrupt.html
+ * 
+ * Arduino DUE のPWM出力法方
+ * https://www.shujima.work/entry/2018/07/29/170810
  */
 
 // _/-_/-_/-_/- 定数定義 _/-_/-_/-_/-
 const int getEncoderPin = 10; // エンコーダーにつながるピン(外部割り込み設定)
+const int speedRecPin = 13; // エンコーダーにつながるピン(外部割り込み設定)
+
 
 // _/-_/-_/-_/- 変数定義 _/-_/-_/-_/-
 volatile int encoderPulseCnt; // エンコーダパルスカウンタ
@@ -16,6 +27,10 @@ void setup() {
   encoderPulseCnt = 0;
   isCalculationRpmReq = false;
   rpm = 0;
+
+  pinMode( speedRecPin, OUTPUT);
+  analogWriteResolution(12);  // PWMの分解能を12bitにする(？)
+  
 
   Serial.begin(115200);
 
