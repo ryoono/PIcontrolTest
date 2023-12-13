@@ -16,8 +16,8 @@
  
 #include <DueTimer.h>
 
-#define Kp      1
-#define Ki      0
+#define Kp      5
+#define Ki      10
 #define target  4000
 #define dt      0.02
 
@@ -52,7 +52,7 @@ void setup() {
 
   Serial.begin(115200);
 
-  // 割り込み設定
+  // 割り込み設定 立ち上がり/立ち下がりで割り込み
   attachInterrupt(digitalPinToInterrupt(getEncoderPin), encoderInterrupt, CHANGE);
   // タイマ割り込みの設定
   Timer3.attachInterrupt(Timer3_handler);
@@ -77,14 +77,16 @@ void loop() {
     I += P * dt;
     U = (int)(Kp * P) + (int)(Ki * I);
     
-    if( U > 4095 ) U = 4095;
-    if( U < 0 ) U = 0;
     duty += (U - duty);
+    if( duty > 4095 ) duty = 4095;
+    if( duty < 0 ) duty = 0;
 
     analogWrite( speedReqPin, 4095-duty);
     
     if( rpm ){
-      Serial.println( rpm ); 
+      Serial.print( rpm );
+      Serial.print( ',' );
+      Serial.println( 4095-duty );
     }
   }
 }
