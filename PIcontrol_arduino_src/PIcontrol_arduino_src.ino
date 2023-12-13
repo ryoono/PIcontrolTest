@@ -16,12 +16,15 @@
  
 #include <DueTimer.h>
 
+#define Kp      1
+#define Ki      0
+#define target  4000
+#define dt      0.02
+
+
 // _/-_/-_/-_/- 定数定義 _/-_/-_/-_/-
-volatile const int getEncoderPin = 10; // エンコーダーにつながるピン(外部割り込み設定)
+const int getEncoderPin = 10; // エンコーダーにつながるピン(外部割り込み設定)
 const int speedReqPin = 13; // モータ電圧制御ピン
-volatile const int testPin = 5;
-volatile int testSta;
-volatile int speedReqSta;
 
 
 // _/-_/-_/-_/- 変数定義 _/-_/-_/-_/-
@@ -29,18 +32,20 @@ volatile int encoderPulseCnt; // エンコーダパルスカウンタ
 volatile bool isCalculationRpmReq; // rpmの計算要求フラグ
 
 int rpm;
+int U, duty;
+float P, I;
 
 void setup() {
 
   encoderPulseCnt = 0;
   isCalculationRpmReq = false;
   rpm = 0;
+  P = I = 0.0;
+  U = duty = 0;
 
   pinMode( speedReqPin, OUTPUT);
   analogWriteResolution(12);  // PWMの分解能を12bitにする(？)
-
-  pinMode( testPin, OUTPUT);
-  testSta = speedReqSta = HIGH;
+  analogWrite( speedReqPin, 4095);
 
   pinMode( getEncoderPin, INPUT);
   
@@ -51,10 +56,9 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(getEncoderPin), encoderInterrupt, CHANGE);
   // タイマ割り込みの設定
   Timer3.attachInterrupt(Timer3_handler);
-  Timer3.start(20000); // 10msec (10,000usec)
-//  startTimer(TC1, 0, TC3_IRQn,  1000);
+  Timer3.start(20000); // 20msec (20,000usec)
 
-  delay(1000);
+  delay(2000);
 }
 
 void loop() {
@@ -63,57 +67,34 @@ void loop() {
   // 現在の回転数を計算
   // 結果をもとに回転速度要求を計算
   // 現在の回転数をPCに送信
-//  if( isCalculationRpmReq ){
-//    isCalculationRpmReq = false;
-//    rpm = encoderPulseCnt*15; // [cnt/20ms] -> [rpm]
-//    encoderPulseCnt = 0;
-//    
-//    // PI制御のプログラム
-//
-//    // ここまで
-//    
-//    Serial.println( rpm );
-//  }
+  if( isCalculationRpmReq ){
+    isCalculationRpmReq = false;
+    rpm = encoderPulseCnt * 15; // [cnt/20ms] -> [rpm]
+    encoderPulseCnt = 0;
+    
+    // PI制御のプログラム
+    P  = target - rpm;
+    I += P * dt;
+    U = (int)(Kp * P) + (int)(Ki * I);
+    
+    if( U > 4095 ) U = 4095;
+    if( U < 0 ) U = 0;
+    duty += (U - duty);
+
+    analogWrite( speedReqPin, 4095-duty);
+    
+    if( rpm ){
+      Serial.println( rpm ); 
+    }
+  }
 }
-
-//// タイマ割り込み設定
-//void startTimer(Tc *tc, uint32_t channel, IRQn_Type irq, uint32_t mSec) {
-//  pmc_enable_periph_clk((uint32_t)irq);
-//  TC_Configure(tc, channel, TC_CMR_WAVE | TC_CMR_WAVSEL_UP_RC | TC_CMR_TCCLKS_TIMER_CLOCK1);
-//  uint32_t rc = (VARIANT_MCK/2/1000)*mSec;
-//  TC_SetRC(tc, channel, rc);
-//  TC_Start(tc, channel);
-//  tc->TC_CHANNEL[channel].TC_IER=TC_IER_CPCS;
-//  tc->TC_CHANNEL[channel].TC_IDR=~TC_IER_CPCS;
-//  NVIC_EnableIRQ(irq);
-//}
-
-//// 20msecのタイマ割り込み
-//void TC3_Handler() {
-//  TC_GetStatus(TC1, 0);
-//  isCalculationRpmReq = true;
-//
-//  digitalWrite( testPin, testSta);
-//  testSta = !testSta;
-//}
 
 // タイマハンドラ
 void Timer3_handler(void){
-  digitalWrite( testPin, testSta);
-  testSta = !testSta;
-//  if(flag == true){
-//    digitalWrite(7,HIGH);
-//    flag = false;
-//  }else{
-//    digitalWrite(7,LOW);
-//    flag = true;
-//  }
+  isCalculationRpmReq = true;
 }
 
 // エンコーダーの立ち上がり/下がりエッジをカウント
 void encoderInterrupt(){
   ++encoderPulseCnt;
-
-  digitalWrite( speedReqPin, speedReqSta);
-  speedReqSta = !speedReqSta;
 }
